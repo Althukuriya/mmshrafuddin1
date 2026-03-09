@@ -2151,6 +2151,31 @@ body {
     }
 }
 
+/* Loading Spinner */
+.loading-spinner {
+    text-align: center;
+    padding: 3rem;
+    color: var(--electric-blue);
+    font-size: 1.2rem;
+}
+
+.loading-spinner i {
+    margin-right: 0.5rem;
+    font-size: 1.5rem;
+}
+
+/* No vehicles message */
+.no-vehicles,
+.no-videos {
+    text-align: center;
+    padding: 3rem;
+    color: #666;
+    font-size: 1.1rem;
+    background: var(--white);
+    border-radius: 20px;
+    box-shadow: var(--shadow-sm);
+}
+
 /* Small mobile devices */
 @media (max-width: 360px) {
     .banner-slide img {
@@ -2167,4 +2192,5 @@ body {
         opacity: 1;
         transform: translateY(0);
     }
+
 }
