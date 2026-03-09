@@ -32,7 +32,7 @@
             
             <ul class="nav-menu">
                 <li><a href="index.html">Home</a></li>
-                <li><a href="vehicles.html?type=Bike" class="active">Buy Bike</a></li>
+                <li><a href="vehicles.html?type=Bike">Buy Bike</a></li>
                 <li><a href="blog.html">Blog</a></li>
                 <li><a href="about.html">About</a></li>
                 <li><a href="contact.html">Contact</a></li>
@@ -170,7 +170,7 @@
         <i class="fab fa-whatsapp"></i>
     </a>
 
-    <!-- Vehicle Detail Modal - MUST BE HERE -->
+    <!-- Vehicle Detail Modal -->
     <div class="modal" id="vehicle-modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -185,41 +185,20 @@
 
     <!-- SCRIPTS - CORRECT ORDER -->
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-    <script src="js/data.js"></script>      <!-- Loads fetchVehiclesFromSheet FIRST -->
-    <script src="js/main.js"></script>       <!-- Has modal functions -->
-    <script src="js/vehicles.js"></script>   <!-- Uses fetchVehiclesFromSheet -->
+    <script src="js/data.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/vehicles.js"></script>
     <script src="js/animations.js"></script>
 
     <script>
-        // Mobile menu toggle function
-        document.addEventListener('DOMContentLoaded', function() {
-            const hamburger = document.querySelector('.hamburger');
-            const navMenu = document.querySelector('.nav-menu');
-            
-            if (hamburger && navMenu) {
-                hamburger.addEventListener('click', function() {
-                    this.classList.toggle('active');
-                    navMenu.classList.toggle('active');
-                    document.body.classList.toggle('menu-open');
-                });
-                
-                document.querySelectorAll('.nav-menu a').forEach(link => {
-                    link.addEventListener('click', function() {
-                        hamburger.classList.remove('active');
-                        navMenu.classList.remove('active');
-                        document.body.classList.remove('menu-open');
-                    });
-                });
-            }
-        });
-
-        // Reset filters function
-        window.resetAllFilters = function() {
-            document.getElementById('live-search').value = '';
-            document.getElementById('clear-search').style.display = 'none';
-            document.getElementById('sort-price').value = 'default';
-            document.querySelector('.filter-tab[data-filter="all"]').click();
-        };
+        // Initialize AOS if available
+        if (typeof AOS !== 'undefined') {
+            AOS.init({
+                duration: 1000,
+                once: true,
+                offset: 100
+            });
+        }
     </script>
 </body>
 </html>
