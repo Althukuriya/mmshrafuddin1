@@ -1,5 +1,9 @@
 // js/vehicles.js
-let filteredVehicles = [];
+// Vehicles page specific functionality
+
+let currentFilter = 'all';
+let currentSearchTerm = '';
+let currentSort = 'default';
 
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("🚗 Vehicles page loaded");
@@ -7,128 +11,203 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initialize AOS
     if (typeof AOS !== 'undefined') {
         AOS.init({
-            duration: 800,
-            once: true
+            duration: 1000,
+            once: true,
+            offset: 100
         });
     }
-
-    // Initialize mobile menu
-    initMobileMenu();
-
-    // Load vehicles
-    await loadVehicles();
+    
+    // Load vehicles first
+    await fetchVehiclesFromSheet();
+    
+    // Check URL parameters for type filter
+    checkUrlParams();
     
     // Initialize filters
     initFilters();
+    
+    // Initialize search
     initLiveSearch();
+    
+    // Initialize sort
     initSort();
     
-    // Check URL for type parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    const typeParam = urlParams.get('type');
-    if (typeParam) {
-        const titleEl = document.getElementById('page-title');
-        const subtitleEl = document.getElementById('page-subtitle');
-        if (titleEl) titleEl.textContent = typeParam === 'Car' ? 'Browse Cars' : 'Browse Bikes';
-        if (subtitleEl) subtitleEl.textContent = `Find your perfect ${typeParam === 'Car' ? 'car' : 'bike'} from our collection`;
-        
-        const tab = document.querySelector(`.filter-tab[data-filter="${typeParam}"]`);
-        if (tab) tab.click();
-    }
+    // Load vehicles
+    loadVehicles();
 });
 
-// Mobile menu initialization
-function initMobileMenu() {
-    const hamburger = document.querySelector('.hamburger');
-    const navMenu = document.querySelector('.nav-menu');
+function checkUrlParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const typeParam = urlParams.get('type');
     
-    if (hamburger && navMenu) {
-        hamburger.addEventListener('click', function() {
-            this.classList.toggle('active');
-            navMenu.classList.toggle('active');
-            document.body.classList.toggle('menu-open');
+    if (typeParam) {
+        currentFilter = typeParam;
+        
+        // Update active tab
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            const filterValue = tab.getAttribute('data-filter');
+            if (filterValue === typeParam || 
+                (typeParam === 'Car' && filterValue === 'Car') ||
+                (typeParam === 'Bike' && filterValue === 'Bike')) {
+                tab.classList.add('active');
+            } else if (filterValue === 'all') {
+                tab.classList.remove('active');
+            }
         });
         
-        document.querySelectorAll('.nav-menu a').forEach(link => {
-            link.addEventListener('click', function() {
-                hamburger.classList.remove('active');
-                navMenu.classList.remove('active');
-                document.body.classList.remove('menu-open');
-            });
+        // Update page title
+        const titleEl = document.getElementById('page-title');
+        const subtitleEl = document.getElementById('page-subtitle');
+        if (titleEl && subtitleEl) {
+            if (typeParam === 'Car') {
+                titleEl.textContent = 'Find Your Perfect Car';
+                subtitleEl.textContent = 'Browse through our collection of quality used cars';
+            } else if (typeParam === 'Bike') {
+                titleEl.textContent = 'Find Your Perfect Bike';
+                subtitleEl.textContent = 'Browse through our collection of quality used bikes';
+            }
+        }
+    }
+}
+
+function initFilters() {
+    const filterTabs = document.querySelectorAll('.filter-tab');
+    
+    filterTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            filterTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            currentFilter = tab.getAttribute('data-filter');
+            loadVehicles();
+            
+            // Update URL without reload
+            const url = new URL(window.location);
+            if (currentFilter !== 'all') {
+                url.searchParams.set('type', currentFilter);
+            } else {
+                url.searchParams.delete('type');
+            }
+            window.history.pushState({}, '', url);
+        });
+    });
+}
+
+function initLiveSearch() {
+    const searchInput = document.getElementById('live-search');
+    const clearButton = document.getElementById('clear-search');
+    
+    if (!searchInput) return;
+    
+    searchInput.addEventListener('input', (e) => {
+        currentSearchTerm = e.target.value.toLowerCase().trim();
+        
+        if (clearButton) {
+            clearButton.style.display = currentSearchTerm ? 'block' : 'none';
+        }
+        
+        loadVehicles();
+    });
+    
+    if (clearButton) {
+        clearButton.addEventListener('click', () => {
+            searchInput.value = '';
+            currentSearchTerm = '';
+            clearButton.style.display = 'none';
+            loadVehicles();
         });
     }
 }
 
-async function loadVehicles() {
+function initSort() {
+    const sortSelect = document.getElementById('sort-price');
+    
+    if (!sortSelect) return;
+    
+    sortSelect.addEventListener('change', (e) => {
+        currentSort = e.target.value;
+        loadVehicles();
+    });
+}
+
+function loadVehicles() {
     const grid = document.getElementById('vehicles-grid');
+    const resultsSpan = document.querySelector('#results-count span');
+    const noResults = document.getElementById('no-results');
     const spinner = document.getElementById('loading-spinner');
-    const noResults = document.getElementById('no-results');
-    
-    if (!grid) {
-        console.error("Vehicles grid not found!");
-        return;
-    }
-    
-    spinner.style.display = 'block';
-    grid.style.display = 'none';
-    noResults.style.display = 'none';
-    
-    try {
-        console.log("📡 Fetching vehicles from Google Sheets...");
-        
-        // Check if fetchVehiclesFromSheet exists
-        if (typeof fetchVehiclesFromSheet !== 'function') {
-            console.error("fetchVehiclesFromSheet function not found!");
-            throw new Error("Data function missing");
-        }
-        
-        // Fetch vehicles
-        const vehicles = await fetchVehiclesFromSheet();
-        
-        console.log(`✅ Loaded ${vehicles.length} vehicles`);
-        
-        if (vehicles.length > 0) {
-            filteredVehicles = [...vehicles];
-            renderVehicles(filteredVehicles);
-            updateResultsCount(filteredVehicles.length);
-        } else {
-            grid.innerHTML = '<p class="no-vehicles">No vehicles available</p>';
-            grid.style.display = 'block';
-        }
-        
-        spinner.style.display = 'none';
-        
-    } catch (error) {
-        console.error('❌ Error loading vehicles:', error);
-        spinner.style.display = 'none';
-        grid.innerHTML = '<div class="error">Error loading vehicles. Please try again.</div>';
-        grid.style.display = 'block';
-    }
-}
-
-function renderVehicles(vehicles) {
-    const grid = document.getElementById('vehicles-grid');
-    const noResults = document.getElementById('no-results');
     
     if (!grid) return;
+    
+    // Show spinner
+    if (spinner) spinner.style.display = 'block';
+    if (noResults) noResults.style.display = 'none';
+    
+    setTimeout(() => {
+        // Filter vehicles
+        let filtered = window.allVehicles || [];
+        
+        // Apply type filter
+        if (currentFilter !== 'all') {
+            filtered = filtered.filter(v => v.type === currentFilter);
+        }
+        
+        // Apply search filter
+        if (currentSearchTerm) {
+            filtered = filtered.filter(v => 
+                v.name.toLowerCase().includes(currentSearchTerm) ||
+                v.year.toString().includes(currentSearchTerm) ||
+                v.type.toLowerCase().includes(currentSearchTerm)
+            );
+        }
+        
+        // Apply sorting
+        if (currentSort !== 'default') {
+            filtered = [...filtered].sort((a, b) => {
+                switch(currentSort) {
+                    case 'low-high':
+                        return a.price - b.price;
+                    case 'high-low':
+                        return b.price - a.price;
+                    case 'newest':
+                        return b.year - a.year;
+                    case 'oldest':
+                        return a.year - b.year;
+                    default:
+                        return 0;
+                }
+            });
+        }
+        
+        // Update results count
+        if (resultsSpan) {
+            resultsSpan.textContent = filtered.length;
+        }
+        
+        // Hide spinner
+        if (spinner) spinner.style.display = 'none';
+        
+        // Show no results if empty
+        if (filtered.length === 0) {
+            if (noResults) noResults.style.display = 'block';
+            grid.innerHTML = '';
+            return;
+        }
+        
+        // Render vehicles
+        renderVehicles(grid, filtered);
+    }, 300); // Small delay for UX
+}
 
-    if (vehicles.length === 0) {
-        grid.style.display = 'none';
-        noResults.style.display = 'block';
-        return;
-    }
-
-    grid.style.display = 'grid';
-    noResults.style.display = 'none';
+function renderVehicles(grid, vehicles) {
+    if (!grid) return;
     
     grid.innerHTML = vehicles.map(vehicle => `
         <div class="vehicle-card" onclick="openVehicleModal(${vehicle.id})">
             <div class="vehicle-image">
-                <img src="${vehicle.image || 'https://placehold.co/600x400/0A1929/FFFFFF?text=No+Image'}" 
-                     alt="${vehicle.name}" 
-                     loading="lazy"
-                     onerror="this.src='https://placehold.co/600x400/0A1929/FFFFFF?text=Image+Error'">
-                <span class="vehicle-badge ${(vehicle.status || 'available').toLowerCase()}">${vehicle.status || 'AVAILABLE'}</span>
+                <img src="${vehicle.image}" alt="${vehicle.name}" loading="lazy">
+                <span class="vehicle-badge ${(vehicle.status || 'AVAILABLE').toLowerCase()}">
+                    ${vehicle.status || 'AVAILABLE'}
+                </span>
             </div>
             <div class="vehicle-info">
                 <h3 class="vehicle-name">${vehicle.name}</h3>
@@ -139,124 +218,42 @@ function renderVehicles(vehicles) {
     `).join('');
 }
 
-function initFilters() {
-    const tabs = document.querySelectorAll('.filter-tab');
-    if (!tabs.length) {
-        console.log("No filter tabs found");
-        return;
-    }
-    
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            
-            const filterType = tab.dataset.filter;
-            
-            if (filterType === 'all') {
-                filteredVehicles = [...window.allVehicles];
-            } else {
-                filteredVehicles = window.allVehicles.filter(v => 
-                    v.type && v.type.toLowerCase() === filterType.toLowerCase()
-                );
-            }
-            
-            applySearchAndSort();
-        });
-    });
-}
-
-function initLiveSearch() {
+// Make reset function globally available
+window.resetAllFilters = function() {
     const searchInput = document.getElementById('live-search');
-    const clearBtn = document.getElementById('clear-search');
+    const sortSelect = document.getElementById('sort-price');
+    const clearButton = document.getElementById('clear-search');
     
-    if (!searchInput || !clearBtn) return;
-    
-    searchInput.addEventListener('input', (e) => {
-        clearBtn.style.display = e.target.value.length > 0 ? 'block' : 'none';
-        applySearchAndSort();
-    });
-    
-    clearBtn.addEventListener('click', () => {
+    if (searchInput) {
         searchInput.value = '';
-        clearBtn.style.display = 'none';
-        applySearchAndSort();
-    });
-}
-
-function initSort() {
-    const sortSelect = document.getElementById('sort-price');
+        currentSearchTerm = '';
+    }
+    
+    if (clearButton) {
+        clearButton.style.display = 'none';
+    }
+    
     if (sortSelect) {
-        sortSelect.addEventListener('change', applySearchAndSort);
+        sortSelect.value = 'default';
+        currentSort = 'default';
     }
-}
-
-function applySearchAndSort() {
-    let vehicles = [...window.allVehicles];
     
-    // Apply type filter
-    const activeTab = document.querySelector('.filter-tab.active');
-    if (activeTab) {
-        const filterType = activeTab.dataset.filter;
-        if (filterType !== 'all') {
-            vehicles = vehicles.filter(v => 
-                v.type && v.type.toLowerCase() === filterType.toLowerCase()
-            );
+    // Reset filter tabs
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        const filterValue = tab.getAttribute('data-filter');
+        if (filterValue === 'all') {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
         }
-    }
+    });
     
-    // Apply search
-    const searchTerm = document.getElementById('live-search')?.value.toLowerCase();
-    if (searchTerm) {
-        vehicles = vehicles.filter(v => 
-            (v.name && v.name.toLowerCase().includes(searchTerm)) ||
-            (v.year && v.year.toString().includes(searchTerm))
-        );
-    }
+    currentFilter = 'all';
     
-    // Apply sort
-    const sortBy = document.getElementById('sort-price')?.value;
-    if (sortBy === 'low-high') {
-        vehicles.sort((a, b) => a.price - b.price);
-    } else if (sortBy === 'high-low') {
-        vehicles.sort((a, b) => b.price - a.price);
-    } else if (sortBy === 'newest') {
-        vehicles.sort((a, b) => b.year - a.year);
-    } else if (sortBy === 'oldest') {
-        vehicles.sort((a, b) => a.year - b.year);
-    }
+    // Remove URL params
+    const url = new URL(window.location);
+    url.searchParams.delete('type');
+    window.history.pushState({}, '', url);
     
-    filteredVehicles = vehicles;
-    renderVehicles(vehicles);
-    updateResultsCount(vehicles.length);
-}
-
-function updateResultsCount(count) {
-    const countSpan = document.querySelector('.results-count span');
-    if (countSpan) {
-        countSpan.textContent = count;
-    }
-}
-
-function resetAllFilters() {
-    const searchInput = document.getElementById('live-search');
-    const clearBtn = document.getElementById('clear-search');
-    const sortSelect = document.getElementById('sort-price');
-    
-    if (searchInput) searchInput.value = '';
-    if (clearBtn) clearBtn.style.display = 'none';
-    if (sortSelect) sortSelect.value = 'default';
-    
-    const allTab = document.querySelector('.filter-tab[data-filter="all"]');
-    if (allTab) {
-        document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-        allTab.classList.add('active');
-    }
-    
-    filteredVehicles = [...window.allVehicles];
-    renderVehicles(filteredVehicles);
-    updateResultsCount(filteredVehicles.length);
-}
-
-// Make functions globally available
-window.resetAllFilters = resetAllFilters;
+    loadVehicles();
+};
