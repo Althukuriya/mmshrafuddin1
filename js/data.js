@@ -1,7 +1,6 @@
 // js/data.js
 // GOOGLE SHEETS CSV URL - MAKE SURE THIS IS CORRECT
 const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmqHEH0b4l4JYMIEM0N6hnH55elmZMKtBie2cDRYGDb_YGMAe0d7ZKe18srlr23ReTJWYv_ECfTSMm/pub?output=csv";
-
 // Store vehicles globally
 window.allVehicles = [];
 
@@ -229,3 +228,4 @@ function formatPrice(price) {
 
 // Auto-fetch when script loads
 fetchVehiclesFromSheet();
+
