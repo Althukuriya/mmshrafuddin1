@@ -3,27 +3,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log("🏠 Homepage loaded");
     
     // Initialize AOS
-    AOS.init({
-        duration: 1000,
-        once: true,
-        offset: 100
-    });
+    if (typeof AOS !== 'undefined') {
+        AOS.init({
+            duration: 1000,
+            once: true,
+            offset: 100
+        });
+    }
     
-    // Initialize hero banner slider
+    // Initialize hero slider
     initHeroSlider();
     
     // Initialize mobile menu
     initMobileMenu();
     
-    // Load vehicles FIRST
-    console.log("Loading vehicles for homepage...");
-    await fetchVehiclesFromSheet();
-    
-    // Then load featured vehicles
-    loadFeaturedVehicles();
-    
-    // Load YouTube videos
-    loadYouTubeVideos();
+    // Wait for vehicles to load
+    setTimeout(() => {
+        // Load featured vehicles
+        loadFeaturedVehicles();
+        
+        // Load YouTube videos
+        loadYouTubeVideos();
+    }, 500);
     
     // Set active nav link
     setActiveNavLink();
@@ -38,12 +39,14 @@ function initHeroSlider() {
     const slides = track.children;
     const totalSlides = slides.length;
     
+    if (totalSlides === 0) return;
+    
     dotsContainer.innerHTML = '';
     
     for (let i = 0; i < totalSlides; i++) {
         const dot = document.createElement('button');
         dot.className = `dot ${i === 0 ? 'active' : ''}`;
-        dot.setAttribute('data-index', i);
+        dot.setAttribute('aria-label', `Go to slide ${i + 1}`);
         dot.addEventListener('click', () => goToSlide(i));
         dotsContainer.appendChild(dot);
     }
@@ -101,47 +104,48 @@ function initMobileMenu() {
     });
 }
 
-async function loadFeaturedVehicles() {
+function loadFeaturedVehicles() {
     const grid = document.getElementById('featured-vehicles-grid');
     if (!grid) return;
     
-    grid.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading vehicles...</div>';
+    const vehicles = window.allVehicles || [];
+    const featured = vehicles.filter(v => v.status === 'AVAILABLE').slice(0, 4);
     
-    try {
-        const vehicles = window.allVehicles.filter(v => v.status === 'AVAILABLE').slice(0, 4);
-        
-        console.log("🏆 Featured vehicles:", vehicles);
-        
-        if (vehicles.length === 0) {
-            grid.innerHTML = '<p class="no-vehicles">No featured vehicles available</p>';
-            return;
-        }
-        
-        grid.innerHTML = vehicles.map(vehicle => `
-            <div class="vehicle-card" onclick="openVehicleModal(${vehicle.id})">
-                <div class="vehicle-image">
-                    <img src="${vehicle.image}" alt="${vehicle.name}" loading="lazy">
-                    <span class="vehicle-badge ${vehicle.status.toLowerCase()}">${vehicle.status}</span>
-                </div>
-                <div class="vehicle-info">
-                    <h3 class="vehicle-name">${vehicle.name}</h3>
-                    <p class="vehicle-year">${vehicle.year}</p>
-                    <p class="vehicle-price">${formatPrice(vehicle.price)}</p>
-                </div>
-            </div>
-        `).join('');
-        
-    } catch (error) {
-        console.error("Error loading featured vehicles:", error);
-        grid.innerHTML = '<p class="error">Error loading vehicles</p>';
+    if (featured.length === 0) {
+        grid.innerHTML = '<p class="no-vehicles">No featured vehicles available</p>';
+        return;
     }
+    
+    grid.innerHTML = featured.map(vehicle => `
+        <div class="vehicle-card" onclick="openVehicleModal(${vehicle.id})">
+            <div class="vehicle-image">
+                <img src="${vehicle.image}" alt="${vehicle.name}" loading="lazy">
+                <span class="vehicle-badge ${(vehicle.status || 'AVAILABLE').toLowerCase()}">
+                    ${vehicle.status || 'AVAILABLE'}
+                </span>
+            </div>
+            <div class="vehicle-info">
+                <h3 class="vehicle-name">${vehicle.name}</h3>
+                <p class="vehicle-year">${vehicle.year}</p>
+                <p class="vehicle-price">${formatPrice(vehicle.price)}</p>
+            </div>
+        </div>
+    `).join('');
 }
 
 function loadYouTubeVideos() {
     const grid = document.getElementById('youtube-grid');
     if (!grid) return;
     
-    const videos = getYouTubeVideosFromVehicles(window.allVehicles);
+    const vehicles = window.allVehicles || [];
+    const videos = vehicles
+        .filter(v => v.youtube && v.youtube.trim() !== '')
+        .slice(0, 3)
+        .map(v => ({
+            title: v.name,
+            thumbnail: v.image,
+            videoUrl: v.youtube
+        }));
     
     if (videos.length === 0) {
         grid.innerHTML = '<p class="no-videos">No YouTube videos available</p>';
@@ -158,7 +162,9 @@ function loadYouTubeVideos() {
             </div>
             <div class="vehicle-info">
                 <h3>${video.title}</h3>
-                <p style="color: #FF0000; margin-top: 0.5rem;"><i class="fab fa-youtube"></i> Watch on YouTube</p>
+                <p style="color: #FF0000; margin-top: 0.5rem;">
+                    <i class="fab fa-youtube"></i> Watch on YouTube
+                </p>
             </div>
         </div>
     `).join('');
@@ -174,12 +180,13 @@ function setActiveNavLink() {
     });
 }
 
-// ========== MODAL FUNCTIONS ==========
+// ========== MODAL FUNCTIONS (GLOBAL) ==========
 window.openVehicleModal = function(vehicleId) {
     console.log("🔍 Opening modal for vehicle ID:", vehicleId);
     
     const id = typeof vehicleId === 'string' ? parseInt(vehicleId) : vehicleId;
-    const vehicle = window.allVehicles.find(v => v.id === id);
+    const vehicles = window.allVehicles || [];
+    const vehicle = vehicles.find(v => v.id === id);
     
     if (!vehicle) {
         console.error("❌ Vehicle not found!");
@@ -221,10 +228,19 @@ window.openVehicleModal = function(vehicleId) {
         `;
     }
     
-    const youtubeButton = vehicle.youtube && vehicle.youtube.trim() !== '' ? 
-        `<a href="${vehicle.youtube}" target="_blank" class="btn-youtube">
-            <i class="fab fa-youtube"></i> Watch Review on YouTube
-        </a>` : '';
+    // Format YouTube button
+    let youtubeButton = '';
+    if (vehicle.youtube && vehicle.youtube.trim() !== '') {
+        const youtubeUrl = vehicle.youtube.includes('youtube.com') || vehicle.youtube.includes('youtu.be') 
+            ? vehicle.youtube 
+            : `https://youtube.com/watch?v=${vehicle.youtube}`;
+        
+        youtubeButton = `
+            <a href="${youtubeUrl}" target="_blank" class="btn-youtube">
+                <i class="fab fa-youtube"></i> Watch Review on YouTube
+            </a>
+        `;
+    }
     
     modalBody.innerHTML = `
         ${imagesHtml}
@@ -272,20 +288,30 @@ window.changeModalImage = function(src, element) {
     if (mainImg) mainImg.src = src;
     
     document.querySelectorAll('.modal-thumbnail').forEach(t => t.classList.remove('active'));
-    element.classList.add('active');
+    if (element) element.classList.add('active');
 };
 
 window.shareVehicle = function(vehicleId) {
-    const vehicle = window.allVehicles.find(v => v.id === vehicleId);
+    const vehicles = window.allVehicles || [];
+    const vehicle = vehicles.find(v => v.id === vehicleId);
     if (!vehicle) return;
     
     const shareText = `Check out this ${vehicle.name} (${vehicle.year}) priced at ${formatPrice(vehicle.price)}`;
     
     if (navigator.share) {
-        navigator.share({ title: vehicle.name, text: shareText, url: window.location.href });
+        navigator.share({
+            title: vehicle.name,
+            text: shareText,
+            url: window.location.href
+        }).catch(() => {
+            // User cancelled share
+        });
     } else {
-        navigator.clipboard.writeText(shareText);
-        alert('Vehicle details copied to clipboard!');
+        navigator.clipboard.writeText(shareText).then(() => {
+            alert('Vehicle details copied to clipboard!');
+        }).catch(() => {
+            alert('Share this vehicle: ' + shareText);
+        });
     }
 };
 
