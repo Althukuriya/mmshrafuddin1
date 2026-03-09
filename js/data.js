@@ -12,16 +12,51 @@ const DEMO_VEHICLES = [
         price: 22000,
         image: "https://placehold.co/600x400/0A1929/FFFFFF?text=Honda+Civic",
         images: ["https://placehold.co/600x400/0A1929/FFFFFF?text=Honda+Civic+1"],
-        status: "Available",
+        status: "AVAILABLE",
         youtube: ""
+    },
+    {
+        id: 2,
+        name: "Yamaha R15 V4",
+        type: "Bike",
+        year: 2023,
+        price: 1800,
+        image: "https://placehold.co/600x400/1E88E5/FFFFFF?text=Yamaha+R15",
+        images: ["https://placehold.co/600x400/1E88E5/FFFFFF?text=Yamaha+R15+1"],
+        status: "AVAILABLE",
+        youtube: "https://youtu.be/JfYui0H1gRk"
+    },
+    {
+        id: 3,
+        name: "Toyota Fortuner",
+        type: "Car",
+        year: 2021,
+        price: 45000,
+        image: "https://placehold.co/600x400/FF6B35/FFFFFF?text=Toyota+Fortuner",
+        images: ["https://placehold.co/600x400/FF6B35/FFFFFF?text=Toyota+Fortuner+1"],
+        status: "SOLD",
+        youtube: ""
+    },
+    {
+        id: 4,
+        name: "Royal Enfield Classic 350",
+        type: "Bike",
+        year: 2023,
+        price: 2200,
+        image: "https://placehold.co/600x400/4CAF50/FFFFFF?text=Royal+Enfield",
+        images: ["https://placehold.co/600x400/4CAF50/FFFFFF?text=Royal+Enfield+1"],
+        status: "AVAILABLE",
+        youtube: "https://youtu.be/JfYui0H1gRk"
     }
 ];
+
+// Store vehicles globally
+window.allVehicles = [];
 
 // Main function to fetch vehicles from Google Sheets
 async function fetchVehiclesFromSheet() {
     try {
         console.log("Fetching data from Google Sheets...");
-        console.log("URL:", GOOGLE_SHEETS_CSV_URL);
         
         // Add cache busting
         const url = GOOGLE_SHEETS_CSV_URL + '&_=' + new Date().getTime();
@@ -38,7 +73,6 @@ async function fetchVehiclesFromSheet() {
         
         const csvText = await response.text();
         console.log("CSV data received, length:", csvText.length);
-        console.log("First 200 chars:", csvText.substring(0, 200));
         
         if (csvText.length < 10) {
             throw new Error("CSV data is too short");
@@ -48,19 +82,22 @@ async function fetchVehiclesFromSheet() {
         
         if (vehicles.length > 0) {
             console.log(`✅ Successfully loaded ${vehicles.length} vehicles from sheet`);
+            window.allVehicles = vehicles;
             return vehicles;
         } else {
             console.log("No vehicles found in sheet, using demo data");
+            window.allVehicles = DEMO_VEHICLES;
             return DEMO_VEHICLES;
         }
     } catch (error) {
         console.error("❌ Error fetching from Google Sheets:", error);
         console.log("Using demo data instead");
+        window.allVehicles = DEMO_VEHICLES;
         return DEMO_VEHICLES;
     }
 }
 
-// Parse CSV to vehicle objects - EXACT column matching
+// Parse CSV to vehicle objects
 function parseCSV(csvText) {
     const lines = csvText.split('\n').filter(line => line.trim() !== '');
     
@@ -69,7 +106,7 @@ function parseCSV(csvText) {
         return [];
     }
     
-    // Get headers - EXACT matches
+    // Get headers
     const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
     console.log("CSV Headers:", headers);
     
@@ -94,9 +131,9 @@ function parseCSV(csvText) {
                     currentValue += char;
                 }
             }
-            values.push(currentValue); // Add last value
+            values.push(currentValue);
             
-            // Helper function to get value by EXACT column name
+            // Helper function to get value by column name
             const getValue = (columnName) => {
                 const index = headers.findIndex(h => h.trim() === columnName);
                 if (index !== -1 && values[index]) {
@@ -105,7 +142,7 @@ function parseCSV(csvText) {
                 return '';
             };
             
-            // Get values using EXACT column names from your sheet
+            // Get values
             const name = getValue('Vehicle Name');
             const type = getValue('Vehicle Type');
             const yearStr = getValue('Model Year');
@@ -113,7 +150,7 @@ function parseCSV(csvText) {
             const status = getValue('STATUS');
             const youtube = getValue('YouTube Video Link (Optional Walkthrough/Review)');
             
-            // Get all 5 images
+            // Get images
             const images = [];
             const img1 = getValue('Vehicle Image 1 (Main Image)');
             const img2 = getValue('Vehicle Image 2');
@@ -141,7 +178,7 @@ function parseCSV(csvText) {
                     price: price,
                     image: images.length > 0 ? images[0] : 'https://placehold.co/600x400/0A1929/FFFFFF?text=No+Image',
                     images: images.length > 0 ? images : ['https://placehold.co/600x400/0A1929/FFFFFF?text=No+Image'],
-                    status: status || 'Available',
+                    status: status ? status.toUpperCase() : 'AVAILABLE',
                     youtube: youtube || '',
                 };
                 
@@ -161,7 +198,7 @@ function parseCSV(csvText) {
 function getYouTubeVideosFromVehicles(vehicles) {
     return vehicles
         .filter(v => v.youtube && v.youtube.trim() !== '')
-        .slice(0, 3)
+        .slice(0, 6)
         .map(v => ({
             id: v.id,
             title: v.name,
@@ -170,7 +207,10 @@ function getYouTubeVideosFromVehicles(vehicles) {
         }));
 }
 
-// Format price in Rupees
+// Format price
 function formatPrice(price) {
     return `₹${price.toLocaleString('en-IN')}`;
 }
+
+// Auto-fetch when script loads
+fetchVehiclesFromSheet();
