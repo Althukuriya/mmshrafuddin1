@@ -1,74 +1,64 @@
 // js/youtube.js
-const YOUTUBE_API_KEY = 'YOUR_API_KEY'; // Replace with actual API key
-const CHANNEL_ID = 'YOUR_CHANNEL_ID'; // Replace with your channel ID
+document.addEventListener('DOMContentLoaded', () => {
+    loadVideoGallery();
+});
 
-async function fetchYouTubeVideos() {
-    try {
-        // For demo, using placeholder data
-        const videos = [
-            {
-                id: 'vid1',
-                title: '2023 Honda Civic Review',
-                thumbnail: 'https://youtu.be/JfYui0H1gRk?si=x0_Zb-WL_35lHkuh',
-                videoId: 'https://youtu.be/JfYui0H1gRk?si=x0_Zb-WL_35lHkuh'
-            },
-            {
-                id: 'vid2',
-                title: 'Yamaha R15 V4 Test Ride',
-                thumbnail: 'https://youtu.be/JfYui0H1gRk?si=x0_Zb-WL_35lHkuh',
-                videoId: 'https://youtu.be/JfYui0H1gRk?si=x0_Zb-WL_35lHkuh'
-            },
-            {
-                id: 'vid3',
-                title: 'Toyota Fortuner 2023',
-                thumbnail: 'https://placehold.co/600x400/FF0000/FFFFFF?text=Toyota+Fortuner',
-                videoId: 'dummy3'
-            },
-            {
-                id: 'vid4',
-                title: 'Royal Enfield Classic 350 Review',
-                thumbnail: 'https://placehold.co/600x400/FF0000/FFFFFF?text=Royal+Enfield',
-                videoId: 'dummy4'
-            },
-            {
-                id: 'vid5',
-                title: 'Hyundai Creta 2023 Walkthrough',
-                thumbnail: 'https://placehold.co/600x400/FF0000/FFFFFF?text=Hyundai+Creta',
-                videoId: 'dummy5'
-            },
-            {
-                id: 'vid6',
-                title: 'KTM Duke 390 Test Ride',
-                thumbnail: 'https://placehold.co/600x400/FF0000/FFFFFF?text=KTM+Duke',
-                videoId: 'dummy6'
-            }
-        ];
-        return videos;
-    } catch (error) {
-        console.error('Error fetching YouTube videos:', error);
-        return [];
-    }
-}
-
-function renderVideoGallery() {
+function loadVideoGallery() {
     const gallery = document.getElementById('video-gallery-grid');
     if (!gallery) return;
-
-    fetchYouTubeVideos().then(videos => {
-        gallery.innerHTML = videos.map(video => `
-            <div class="youtube-card" onclick="window.open('https://youtube.com/watch?v=${video.videoId}', '_blank')">
-                <div class="youtube-thumbnail">
-                    <img src="${video.thumbnail}" alt="${video.title}" loading="lazy">
-                    <div class="play-button">
-                        <i class="fas fa-play"></i>
-                    </div>
-                </div>
-                <div class="vehicle-info">
-                    <h3>${video.title}</h3>
-                </div>
-            </div>
-        `).join('');
-    });
+    
+    // Get videos from vehicles data
+    setTimeout(() => {
+        const vehicles = window.allVehicles || [];
+        const videos = vehicles
+            .filter(v => v.youtube && v.youtube.trim() !== '')
+            .map(v => ({
+                title: v.name,
+                thumbnail: v.image,
+                videoUrl: v.youtube
+            }));
+        
+        if (videos.length === 0) {
+            // Use demo videos if no YouTube links
+            const demos = [
+                {
+                    title: "Honda Civic 2022 Review",
+                    thumbnail: "https://placehold.co/600x400/FF0000/FFFFFF?text=Honda+Civic+Review",
+                    videoUrl: "https://youtu.be/JfYui0H1gRk"
+                },
+                {
+                    title: "Yamaha R15 V4 Test Ride",
+                    thumbnail: "https://placehold.co/600x400/FF0000/FFFFFF?text=Yamaha+R15+Review",
+                    videoUrl: "https://youtu.be/JfYui0H1gRk"
+                },
+                {
+                    title: "Toyota Fortuner 2023",
+                    thumbnail: "https://placehold.co/600x400/FF0000/FFFFFF?text=Toyota+Fortuner",
+                    videoUrl: "https://youtu.be/JfYui0H1gRk"
+                }
+            ];
+            renderVideos(gallery, demos);
+        } else {
+            renderVideos(gallery, videos);
+        }
+    }, 500);
 }
 
-document.addEventListener('DOMContentLoaded', renderVideoGallery);
+function renderVideos(gallery, videos) {
+    gallery.innerHTML = videos.map(video => `
+        <div class="youtube-card" onclick="window.open('${video.videoUrl}', '_blank')">
+            <div class="youtube-thumbnail">
+                <img src="${video.thumbnail}" alt="${video.title}" loading="lazy">
+                <div class="play-button">
+                    <i class="fas fa-play"></i>
+                </div>
+            </div>
+            <div class="vehicle-info">
+                <h3>${video.title}</h3>
+                <p style="color: #FF0000; margin-top: 0.5rem;">
+                    <i class="fab fa-youtube"></i> Watch on YouTube
+                </p>
+            </div>
+        </div>
+    `).join('');
+}
